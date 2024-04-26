@@ -108,14 +108,14 @@ class PluralizerTest extends TestCase
         $this->assertSame('users', Str::plural('user', ['one', 'two']));
     }
 
-    public function testPluralSupportsCollections(): void
+    public function testPluralSupportsCollections()
     {
         $this->assertSame('users', Str::plural('user', collect()));
         $this->assertSame('user', Str::plural('user', collect(['one'])));
         $this->assertSame('users', Str::plural('user', collect(['one', 'two'])));
     }
 
-    public function testPluralStudlySupportsArrays(): void
+    public function testPluralStudlySupportsArrays()
     {
         $this->assertPluralStudly('SomeUsers', 'SomeUser', []);
         $this->assertPluralStudly('SomeUser', 'SomeUser', ['one']);
@@ -129,7 +129,7 @@ class PluralizerTest extends TestCase
         $this->assertPluralStudly('SomeUsers', 'SomeUser', collect(['one', 'two']));
     }
 
-    public function testPluralizerAboutData(): void
+    public function testPluralizerAboutData()
     {
         $this->assertSame('xxx_datum', Str::singular('xxx_data'));
         $this->assertSame('data', Str::plural('datum'));
