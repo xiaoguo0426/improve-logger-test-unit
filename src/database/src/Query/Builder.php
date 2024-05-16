@@ -24,6 +24,7 @@ use Hyperf\Contract\Arrayable;
 use Hyperf\Contract\LengthAwarePaginatorInterface;
 use Hyperf\Contract\PaginatorInterface;
 use Hyperf\Database\Concerns\BuildsQueries;
+use Hyperf\Database\Concerns\ExplainsQueries;
 use Hyperf\Database\ConnectionInterface;
 use Hyperf\Database\Exception\InvalidBindingException;
 use Hyperf\Database\Model\Builder as ModelBuilder;
@@ -44,7 +45,7 @@ use function Hyperf\Tappable\tap;
 
 class Builder
 {
-    use BuildsQueries, ForwardsCalls, Macroable {
+    use BuildsQueries, ExplainsQueries, ForwardsCalls, Macroable {
         __call as macroCall;
     }
 
@@ -114,11 +115,10 @@ class Builder
     public $from;
 
     /**
-     * The force indexes.
-     *
-     * @var string[]
+     * The index hint for the query.
+     * @var IndexHint
      */
-    public $forceIndexes = [];
+    public $indexHint;
 
     /**
      * The table joins for the query.
@@ -413,12 +413,49 @@ class Builder
 
     /**
      * Set the force indexes which the query should be used.
+     * @deprecated It will be removed in v3.1, please use `forceIndex` instead
+     */
+    public function forceIndexes(array $forceIndexes): static
+    {
+        $values = [];
+        foreach ($forceIndexes as $forceIndex) {
+            $values[] = '`' . str_replace('`', '``', $forceIndex) . '`';
+        }
+
+        $this->indexHint = new IndexHint('force', implode(',', $values));
+
+        return $this;
+    }
+
+    /**
+     * Add an index hint to suggest a query index.
+     */
+    public function useIndex(string $index): static
+    {
+        $this->indexHint = new IndexHint('hint', $index);
+
+        return $this;
+    }
+
+    /**
+     * Add an index hint to force a query index.
+     */
+    public function forceIndex(string $index): static
+    {
+        $this->indexHint = new IndexHint('force', $index);
+
+        return $this;
+    }
+
+    /**
+     * Add an index hint to ignore a query index.
      *
      * @return $this
      */
-    public function forceIndexes(array $forceIndexes)
+    public function ignoreIndex(string $index): static
     {
-        $this->forceIndexes = $forceIndexes;
+        $this->indexHint = new IndexHint('ignore', $index);
+
         return $this;
     }
 

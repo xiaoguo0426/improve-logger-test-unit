@@ -1,4 +1,32 @@
-# v3.1.21 - TBD
+# v3.1.22 - TBD
+
+## Fixed
+
+- [#6755](https://github.com/hyperf/hyperf/pull/6755) Fixed bug that exception normalizer cannot support symfony 7.
+
+## Added
+
+- [#6734](https://github.com/hyperf/hyperf/pull/6734) Auto complete options for as command and closure command.
+- [#6746](https://github.com/hyperf/hyperf/pull/6746) Added `explain()` for `Hyperf\Database\Query\Builder`.
+- [#6749](https://github.com/hyperf/hyperf/pull/6749) Added some rules for `hyperf/validation`.
+- [#6752](https://github.com/hyperf/hyperf/pull/6752) Added `path` and `paths` methods to `Hyperf\Database\Seeders\Seed`.
+
+# v3.1.21 - 2024-05-09
+
+## Added
+
+- [#6738](https://github.com/hyperf/hyperf/pull/6738) Added `unshift` method to `Hyperf\Collection\Collection`.
+- [#6740](https://github.com/hyperf/hyperf/pull/6740) Support `useIndex` `forceIndex` and `ignoreIndex` for `Hyperf\Database\Query\Builder`.
+
+## Optimized
+
+- [#6716](https://github.com/hyperf/hyperf/pull/6716) [#6717](https://github.com/hyperf/hyperf/pull/6717) Optimized exchange declaration for amqp consumer messages.
+- [#6721](https://github.com/hyperf/hyperf/pull/6721) Optimized the implementation of `When` Method.
+- [#6731](https://github.com/hyperf/hyperf/pull/6731) Updated InteractsWithModelFactory to handle missing dependencies.
+
+## Fixed
+
+- [#6728](https://github.com/hyperf/hyperf/pull/6728) Fixed bug that `hyperf/watch` cannot work when using `hyperf/constants` enum mode.
 
 # v3.1.20 - 2024-04-26
 

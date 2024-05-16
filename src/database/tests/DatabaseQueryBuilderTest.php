@@ -22,6 +22,7 @@ use Hyperf\Database\Query\Grammars\MySqlGrammar;
 use Hyperf\Database\Query\Processors\MySqlProcessor;
 use Hyperf\Database\Query\Processors\Processor;
 use Mockery as m;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -133,6 +134,57 @@ class DatabaseQueryBuilderTest extends TestCase
         $this->assertSame('select * from "prefix_users"', $builder->toSql());
     }
 
+    public function testUseIndex(): void
+    {
+        $builder = $this->getMySqlBuilder();
+        $builder->select('*')->from('users')->useIndex('index1');
+        $this->assertSame('select * from `users` use index (index1)', $builder->toSql());
+
+        $builder->select('*')->from('users')->useIndex('index2');
+        $this->assertSame('select * from `users` use index (index2)', $builder->toSql());
+
+        $builder->select('*')->from('users')->useIndex('index1,index2');
+        $this->assertSame('select * from `users` use index (index1,index2)', $builder->toSql());
+
+        $builder = $this->getMySqlBuilder()->select('*')->from('users');
+        $this->assertSame('select * from `users`', $builder->toSql());
+    }
+
+    public function testForceIndex(): void
+    {
+        $builder = $this->getMySqlBuilder();
+        $builder1 = (clone $builder)->select('*')->from('users')->where('username', 'xxx')->forceIndex('index1');
+        $foeceses = (clone $builder)->select('*')->from('users')->where('username', 'xxx')->forceIndexes(['index1']);
+
+        $this->assertSame('select * from `users` force index (index1) where `username` = ?', $builder1->toSql());
+        $this->assertSame('select * from `users` force index (`index1`) where `username` = ?', $foeceses->toSql());
+
+        $builder2 = (clone $builder);
+        $builder2->select('*')->from('users')->where('username', 'xxx')->forceIndex('index2');
+        $foeceses = (clone $builder);
+        $foeceses->select('*')->from('users')->where('username', 'xxx')->forceIndexes(['index2']);
+        $this->assertSame('select * from `users` force index (index2) where `username` = ?', $builder2->toSql());
+        $this->assertSame('select * from `users` force index (`index2`) where `username` = ?', $foeceses->toSql());
+
+        $builder3 = (clone $builder);
+        $foeceses = (clone $builder);
+        $builder3->select('*')->from('users')->where('username', 'xxx')->forceIndex('index1,index2');
+        $foeceses->select('*')->from('users')->where('username', 'xxx')->forceIndexes(['index1', 'index2']);
+        $this->assertSame('select * from `users` force index (index1,index2) where `username` = ?', $builder3->toSql());
+        $this->assertSame('select * from `users` force index (`index1`,`index2`) where `username` = ?', $foeceses->toSql());
+    }
+
+    public function testIgnoreIndex(): void
+    {
+        $builder = $this->getMySqlBuilder();
+        $builder->select('*')->from('users')->ignoreIndex('index1');
+        $this->assertSame('select * from `users` ignore index (index1)', $builder->toSql());
+        $builder->select('*')->from('users')->ignoreIndex('index2');
+        $this->assertSame('select * from `users` ignore index (index2)', $builder->toSql());
+        $builder->select('*')->from('users')->ignoreIndex('index1,index2');
+        $this->assertSame('select * from `users` ignore index (index1,index2)', $builder->toSql());
+    }
+
     public function testBasicSelectDistinct(): void
     {
         $builder = $this->getBuilder();
@@ -194,6 +246,29 @@ class DatabaseQueryBuilderTest extends TestCase
         $this->assertSame('select * from "users" where "email" = ?', $builder->toSql());
     }
 
+    public function testWhenValueOfCallback(): void
+    {
+        $callback = function (Builder $query, $condition) {
+            $this->assertTrue($condition);
+
+            $query->where('id', '=', 1);
+        };
+
+        $builder = $this->getBuilder();
+        $builder->select('*')
+            ->from('users')
+            ->when(fn (Builder $query) => true, $callback)
+            ->where('email', 'foo');
+        $this->assertSame('select * from "users" where "id" = ? and "email" = ?', $builder->toSql());
+
+        $builder = $this->getBuilder();
+        $builder->select('*')
+            ->from('users')
+            ->when(fn (Builder $query) => false, $callback)
+            ->where('email', 'foo');
+        $this->assertSame('select * from "users" where "email" = ?', $builder->toSql());
+    }
+
     public function testWhenCallbackWithReturn(): void
     {
         $callback = function ($query, $condition) {
@@ -251,6 +326,29 @@ class DatabaseQueryBuilderTest extends TestCase
         $builder = $this->getBuilder();
         $builder->select('*')->from('users')->unless(true, $callback)->where('email', 'foo');
         $this->assertSame('select * from "users" where "email" = ?', $builder->toSql());
+    }
+
+    public function testUnlessValueOfCallback(): void
+    {
+        $callback = function (Builder $query, $condition) {
+            $this->assertFalse($condition);
+
+            $query->where('id', '=', 1);
+        };
+
+        $builder = $this->getBuilder();
+        $builder->select('*')
+            ->from('users')
+            ->unless(fn (Builder $query) => true, $callback)
+            ->where('email', 'foo');
+        $this->assertSame('select * from "users" where "email" = ?', $builder->toSql());
+
+        $builder = $this->getBuilder();
+        $builder->select('*')
+            ->from('users')
+            ->unless(fn (Builder $query) => false, $callback)
+            ->where('email', 'foo');
+        $this->assertSame('select * from "users" where "id" = ? and "email" = ?', $builder->toSql());
     }
 
     public function testUnlessCallbackWithReturn(): void
@@ -629,6 +727,43 @@ class DatabaseQueryBuilderTest extends TestCase
         $this->assertEquals([], $builder->getBindings());
     }
 
+    public function testExplain(): void
+    {
+        $builder = $this->getBuilder();
+        /**
+         * @var ConnectionInterface|MockInterface $connection
+         */
+        $connection = $builder->getConnection();
+        $connection->allows('select')
+            ->once()
+            ->withArgs(function ($sql, $bindings) {
+                $this->assertSame($sql, 'EXPLAIN select * from "users" where 0 = 1');
+                $this->assertIsArray($bindings);
+                $this->assertCount(0, $bindings);
+                return $sql === 'EXPLAIN select * from "users" where 0 = 1' && $bindings === [];
+            })
+            ->andReturn([]);
+        $builder->select('*')->from('users')->whereIntegerInRaw('id', []);
+        $this->assertCount(0, $builder->explain());
+
+        $builder = $this->getBuilder();
+        /**
+         * @var ConnectionInterface|MockInterface $connection
+         */
+        $connection = $builder->getConnection();
+        $connection->allows('select')
+            ->once()
+            ->withArgs(function ($sql, $bindings) {
+                $this->assertSame($sql, 'EXPLAIN select * from "hyperf" where "id" in (?, ?, ?)');
+                $this->assertIsArray($bindings);
+                $this->assertCount(3, $bindings);
+                return $sql === 'EXPLAIN select * from "hyperf" where "id" in (?, ?, ?)' && $bindings === [1, 2, 3];
+            })
+            ->andReturn([]);
+        $builder->select('*')->from('hyperf')->whereIn('id', [1, 2, 3]);
+        $this->assertCount(0, $builder->explain());
+    }
+
     public function testEmptyWhereIntegerNotInRaw(): void
     {
         $builder = $this->getBuilder();
@@ -734,7 +869,7 @@ class DatabaseQueryBuilderTest extends TestCase
         return new Builder(m::mock(ConnectionInterface::class), $grammar, $processor);
     }
 
-    protected function getMockQueryBuilder(): m\MockInterface
+    protected function getMockQueryBuilder(): MockInterface
     {
         return m::mock(Builder::class, [
             m::mock(ConnectionInterface::class),
